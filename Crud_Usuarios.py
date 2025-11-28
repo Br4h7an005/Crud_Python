@@ -4,6 +4,8 @@ import mariadb
 import bcrypt
 from tkcalendar import DateEntry
 from datetime import datetime
+import re
+
 
 # --- Configuración de la Base de Datos ---
 DB_CONFIG = {
@@ -33,9 +35,11 @@ def create_table():
                     tipo_identificacion ENUM('CC', 'NIT', 'PAS', 'CE') NOT NULL,
                     numero_identificacion VARCHAR(255) NOT NULL,
                     nombre VARCHAR(255) NOT NULL,
-                    fecha_nacimiento DATE NOT NULL,
+                    apellido VARCHAR(255) NOT NULL,
+                    fecha_nacimiento DATE,
+                    correo VARCHAR(255) NOT NULL,
                     password_hash VARCHAR(255) NOT NULL,
-                    telefono VARCHAR(30)
+                    telefono VARCHAR(40)
                 );
             """)
             conn.commit()
@@ -50,19 +54,74 @@ def hash_password(password):
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     return hashed.decode('utf-8')
 
+def validar_obligatorio(valor, campo):
+    if not valor:
+        messagebox.showerror("Error", f"El campo '{campo}' es obligatorio.")
+        return False
+    return True
+
 def verify_password(password, hashed_password):
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-def insert_user(nombre, fecha_nacimiento, password):
+def insert_user(tipo_identificacion, numero_identificacion,nombre, apellido, correo, password, fecha_nacimiento, telefono):
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
         try:
             hashed_password = hash_password(password)
-            cursor.execute(
-                "INSERT INTO users (nombre, fecha_nacimiento, password_hash) VALUES (?, ?, ?)",
-                (nombre, fecha_nacimiento, hashed_password)
-            )
+
+            if not fecha_nacimiento and not telefono:
+                cursor.execute("""
+                    INSERT INTO users (
+                        tipo_identificacion,
+                        numero_identificacion,
+                        nombre,
+                        apellido,
+                        correo,
+                        password_hash,
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password))
+        
+            if not fecha_nacimiento:
+                cursor.execute("""
+                    INSERT INTO users (
+                        tipo_identificacion,
+                        numero_identificacion,
+                        nombre,
+                        apellido,
+                        correo,
+                        password_password_hash,
+                        telefono
+                    ) VALUES (?, ?, ?, ?, ?,? ,?)
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password, telefono))
+                
+            if not telefono:
+                cursor.execute("""
+                    INSERT INTO users (
+                        tipo_identificacion,
+                        numero_identificacion,
+                        nombre,
+                        apellido,
+                        fecha_nacimiento,
+                        correo,
+                        password_password_hash
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password))
+
+            
+                cursor.execute("""
+                    INSERT INTO users (
+                        tipo_identificacion,
+                        numero_identificacion,
+                        nombre,
+                        apellido,
+                        fecha_nacimiento,
+                        correo,
+                        password_password_hash,
+                        telefono
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento, correo, hashed_password, telefono))
+                
             conn.commit()
             messagebox.showinfo("Éxito", "Usuario insertado correctamente.")
             return True
@@ -128,6 +187,7 @@ def update_user(user_id, nombre, fecha_nacimiento, password=None):
         finally:
             cursor.close()
             conn.close()
+            
 
 def delete_user(user_id):
     conn = get_db_connection()
@@ -144,6 +204,12 @@ def delete_user(user_id):
         finally:
             cursor.close()
             conn.close()
+            
+            
+def validar_telefono(numero):
+    patron = r'^\+\d{1,3}\s?\d{7,12}(\s?(ext\.?|extensión)\s?\d+)?$'
+    return re.match(patron, numero) is not None
+
 
 # --- Interfaz Gráfica con Tkinter ---
 class UserApp:
@@ -160,25 +226,46 @@ class UserApp:
         input_frame = tk.LabelFrame(self.master, text="Gestión de Usuarios", padx=10, pady=10)
         input_frame.pack(padx=10, pady=10, fill="x")
 
+        # Input Identificación
         tk.Label(input_frame, text="ID (Solo para actualizar/eliminar):").grid(row=0, column=0, pady=5, sticky="w")
         self.id_entry = tk.Entry(input_frame)
         self.id_entry.grid(row=0, column=1, pady=5, sticky="ew")
 
-        tk.Label(input_frame, text="Nombre:").grid(row=1, column=0, pady=5, sticky="w")
+        tk.Label(input_frame, text="Tipo de identificación:").grid(row=1, column=0, pady=5, sticky="w")
+        self.tipo_identificacion_entry = tk.Entry(input_frame)
+        self.tipo_identificacion_entry.grid(row=1, column=1, pady=5, sticky="ew")
+
+        tk.Label(input_frame, text="Número de identificación:").grid(row=2, column=0, pady=5, sticky="w")
+        self.numero_identificacion_entry = tk.Entry(input_frame)
+        self.numero_identificacion_entry.grid(row=2, column=1, pady=5, sticky="ew")
+        
+        tk.Label(input_frame, text="Nombre:").grid(row=3, column=0, pady=5, sticky="w")
         self.nombre_entry = tk.Entry(input_frame)
-        self.nombre_entry.grid(row=1, column=1, pady=5, sticky="ew")
+        self.nombre_entry.grid(row=3, column=1, pady=1, sticky="ew")
+        
+        tk.Label(input_frame, text="Apellido:").grid(row=4, column=0, pady=5, sticky="w")
+        self.apellido_entry = tk.Entry(input_frame)
+        self.apellido_entry.grid(row=4, column=1, pady=5, sticky="ew")
 
-        tk.Label(input_frame, text="Fecha de Nacimiento:").grid(row=2, column=0, pady=5, sticky="w")
+        tk.Label(input_frame, text="Fecha de Nacimiento:").grid(row=6, column=0, pady=5, sticky="w")
         self.fecha_nacimiento_entry = DateEntry(input_frame, selectmode='day', date_pattern='yyyy-mm-dd')
-        self.fecha_nacimiento_entry.grid(row=2, column=1, pady=5, sticky="ew")
+        self.fecha_nacimiento_entry.grid(row=6, column=1, pady=5, sticky="ew")
 
-        tk.Label(input_frame, text="Contraseña:").grid(row=3, column=0, pady=5, sticky="w")
+        tk.Label(input_frame, text="Correo:").grid(row=7, column=0, pady=5, sticky="w")
+        self.correo_entry = tk.Entry(input_frame)
+        self.correo_entry.grid(row=7, column=1, pady=5, sticky="ew")
+
+        tk.Label(input_frame, text="Contraseña:").grid(row=8, column=0, pady=5, sticky="w")
         self.password_entry = tk.Entry(input_frame, show="*") # Oculta la contraseña
-        self.password_entry.grid(row=3, column=1, pady=5, sticky="ew")
+        self.password_entry.grid(row=8, column=1, pady=5, sticky="ew")
+        
+        tk.Label(input_frame, text="Telefono:").grid(row=9, column=0, pady=5, sticky="w")
+        self.telefono_entry = tk.Entry(input_frame) 
+        self.telefono_entry.grid(row=9, column=1, pady=5, sticky="ew")
 
         # Botones de acción
         button_frame = tk.Frame(input_frame)
-        button_frame.grid(row=4, column=0, columnspan=2, pady=10)
+        button_frame.grid(row=10, column=0, columnspan=2, pady=10)
 
         tk.Button(button_frame, text="Crear Usuario", command=self.add_user).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Actualizar Usuario", command=self.update_selected_user).pack(side=tk.LEFT, padx=5)
@@ -210,15 +297,26 @@ class UserApp:
             self.tree.insert("", "end", values=user)
 
     def add_user(self):
+        tipo_identificacion = self.tipo_identificacion_entry.get().strip()
+        numero_identificacion = self.numero_identificacion_entry.get().strip()
         nombre = self.nombre_entry.get().strip()
+        apellido = self.apellido_entry.get().strip()
         fecha_nacimiento_str = self.fecha_nacimiento_entry.get_date().strftime('%Y-%m-%d')
+        correo = self.correo_entry.get().strip()
         password = self.password_entry.get()
+        telefono = self.telefono_entry.get().strip()
 
-        if not nombre or not fecha_nacimiento_str or not password:
-            messagebox.showwarning("Campos Requeridos", "Por favor, complete todos los campos (Nombre, Fecha de Nacimiento, Contraseña).")
-            return
+        if (
+            not validar_obligatorio(tipo_identificacion, 'tipo de identifición') or
+            not validar_obligatorio(numero_identificacion, 'número de identificación') or
+            not validar_obligatorio(nombre, 'nombre') or
+            not validar_obligatorio(apellido, 'apellido') or
+            not validar_obligatorio(correo, 'correo') or
+            not validar_obligatorio(password, 'password')
+        ): return
 
-        if insert_user(nombre, fecha_nacimiento_str, password):
+
+        if insert_user(tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento_str, correo, password, telefono):
             self.load_users()
             self.clear_fields()
 
