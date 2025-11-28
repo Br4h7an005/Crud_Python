@@ -1,0 +1,17 @@
+LIBRERIAS A INSTALAR:
+Antes de ejecutar el código, asegúrate de tener instaladas las siguientes librerías:
+
+mariadb: El conector para MariaDB/MySQL. Puedes instalarlo con pip:
+pip install mariadb
+
+O si tienes problemas, puedes probar con el conector oficial de MySQL:
+pip install mysql-connector-python
+
+bcrypt: Para cifrar contraseñas.
+pip install bcrypt
+
+tkcalendar: Para un widget de selección de fecha más amigable.
+pip install tkcalendar
+
+CONFIGURACION DE LA BASE DE DATOS:
+CREATE DATABASE crud_db;
