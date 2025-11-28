@@ -30,9 +30,12 @@ def create_table():
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INT AUTO_INCREMENT PRIMARY KEY,
+                    tipo_identificacion ENUM('CC', 'NIT', 'PAS', 'CE') NOT NULL,
+                    numero_identificacion VARCHAR(255) NOT NULL,
                     nombre VARCHAR(255) NOT NULL,
                     fecha_nacimiento DATE NOT NULL,
-                    password_hash VARCHAR(255) NOT NULL
+                    password_hash VARCHAR(255) NOT NULL,
+                    telefono VARCHAR(30)
                 );
             """)
             conn.commit()
