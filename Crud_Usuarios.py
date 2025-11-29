@@ -71,6 +71,9 @@ def insert_user(tipo_identificacion, numero_identificacion,nombre, apellido, cor
             hashed_password = hash_password(password)
 
             if not fecha_nacimiento and not telefono:
+                telefono = None
+                fecha_nacimiento = None
+                
                 cursor.execute("""
                     INSERT INTO users (
                         tipo_identificacion,
@@ -79,10 +82,13 @@ def insert_user(tipo_identificacion, numero_identificacion,nombre, apellido, cor
                         apellido,
                         correo,
                         password_hash,
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password))
-        
-            if not fecha_nacimiento:
+                        telefono 
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)  -- 7 placeholders
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password, telefono))  
+                     
+            elif not fecha_nacimiento:
+                fecha_nacimiento = None
+                
                 cursor.execute("""
                     INSERT INTO users (
                         tipo_identificacion,
@@ -90,12 +96,27 @@ def insert_user(tipo_identificacion, numero_identificacion,nombre, apellido, cor
                         nombre,
                         apellido,
                         correo,
-                        password_password_hash,
+                        password_hash,
                         telefono
-                    ) VALUES (?, ?, ?, ?, ?,? ,?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password, telefono))
                 
-            if not telefono:
+            elif not telefono:
+                telefono = None
+                
+                cursor.execute("""
+                    INSERT INTO users (
+                        tipo_identificacion,
+                        numero_identificacion,
+                        nombre,
+                        apellido,
+                        fecha_nacimiento, 
+                        correo,           
+                        password_hash     
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento, correo, hashed_password))
+                
+            else:
                 cursor.execute("""
                     INSERT INTO users (
                         tipo_identificacion,
@@ -104,9 +125,10 @@ def insert_user(tipo_identificacion, numero_identificacion,nombre, apellido, cor
                         apellido,
                         fecha_nacimiento,
                         correo,
-                        password_password_hash
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password))
+                        password_hash, 
+                        telefono
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)  -- <<-- ¡8 placeholders!
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento, correo, hashed_password, telefono))
 
             
                 cursor.execute("""
@@ -226,15 +248,29 @@ class UserApp:
         input_frame = tk.LabelFrame(self.master, text="Gestión de Usuarios", padx=10, pady=10)
         input_frame.pack(padx=10, pady=10, fill="x")
 
-        # Input Identificación
         tk.Label(input_frame, text="ID (Solo para actualizar/eliminar):").grid(row=0, column=0, pady=5, sticky="w")
         self.id_entry = tk.Entry(input_frame)
         self.id_entry.grid(row=0, column=1, pady=5, sticky="ew")
+        
+        opciones_indentificaciones = ['CC', 'NIT', 'PAS', 'CE']
 
         tk.Label(input_frame, text="Tipo de identificación:").grid(row=1, column=0, pady=5, sticky="w")
-        self.tipo_identificacion_entry = tk.Entry(input_frame)
-        self.tipo_identificacion_entry.grid(row=1, column=1, pady=5, sticky="ew")
+        
+        self.tipo_identificacion_var = tk.StringVar(self.master)
+        self.tipo_identificacion_var.set(opciones_indentificaciones[0])
 
+        self.tipo_identificacion_select = tk.OptionMenu(
+            input_frame,
+            self.tipo_identificacion_var,
+            *opciones_indentificaciones
+        )
+        
+        self.tipo_identificacion_select.grid(row=1, column=1, pady=5, sticky="ew", padx=10)
+        
+        input_frame.grid_columnconfigure(1, weight=1)
+        
+        tk.Button(self.master, text="Mostrar Selección", command=self.obtener_valor).pack(pady=10)
+        
         tk.Label(input_frame, text="Número de identificación:").grid(row=2, column=0, pady=5, sticky="w")
         self.numero_identificacion_entry = tk.Entry(input_frame)
         self.numero_identificacion_entry.grid(row=2, column=1, pady=5, sticky="ew")
@@ -295,9 +331,16 @@ class UserApp:
         users = get_users()
         for user in users:
             self.tree.insert("", "end", values=user)
+            
+    def obtener_valor(self):
+        # Función para obtener el valor seleccionado usando .get()
+        valor = self.tipo_identificacion_var.get()
+        print(f"El tipo de identificación seleccionado es: {valor}")
+        
+        return valor
 
     def add_user(self):
-        tipo_identificacion = self.tipo_identificacion_entry.get().strip()
+        tipo_identificacion = self.tipo_identificacion_var.get()
         numero_identificacion = self.numero_identificacion_entry.get().strip()
         nombre = self.nombre_entry.get().strip()
         apellido = self.apellido_entry.get().strip()
@@ -307,7 +350,6 @@ class UserApp:
         telefono = self.telefono_entry.get().strip()
 
         if (
-            not validar_obligatorio(tipo_identificacion, 'tipo de identifición') or
             not validar_obligatorio(numero_identificacion, 'número de identificación') or
             not validar_obligatorio(nombre, 'nombre') or
             not validar_obligatorio(apellido, 'apellido') or
@@ -315,8 +357,16 @@ class UserApp:
             not validar_obligatorio(password, 'password')
         ): return
 
-
-        if insert_user(tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento_str, correo, password, telefono):
+        if insert_user(
+                    tipo_identificacion,
+                    numero_identificacion, 
+                    nombre,
+                    apellido,
+                    correo,
+                    password,
+                    fecha_nacimiento_str,
+                    telefono
+                ):
             self.load_users()
             self.clear_fields()
 
@@ -327,20 +377,39 @@ class UserApp:
             return
 
         user_id = self.tree.item(selected_item)['values'][0]
+        tipo_identificacion = self.tipo_identificacion_entry.get().strip()
+        numero_identificacion = self.tipo_identificacion_var.get().strip()
         nombre = self.nombre_entry.get().strip()
         fecha_nacimiento_str = self.fecha_nacimiento_entry.get_date().strftime('%Y-%m-%d')
+        apellido = self.apellido_entry.get().strip()
+        correo = self.correo_entry.get().strip()
+        telefono = self.telefono_entry.get().strip()
         password = self.password_entry.get() # Obtener la nueva contraseña (si se ingresó)
 
-        if not nombre or not fecha_nacimiento_str:
-            messagebox.showwarning("Campos Requeridos", "Por favor, complete Nombre y Fecha de Nacimiento.")
-            return
+        if (
+            not validar_obligatorio(numero_identificacion, 'número de identificación') or
+            not validar_obligatorio(nombre, 'nombre') or
+            not validar_obligatorio(apellido, 'apellido') or
+            not validar_obligatorio(correo, 'correo')
+        ): return
 
         if password:
-            if update_user(user_id, nombre, fecha_nacimiento_str, password):
+            if update_user(user_id, tipo_identificacion, numero_identificacion, nombre, apellido, password):
                 self.load_users()
                 self.clear_fields()
+        
+        if fecha_nacimiento_str:
+            if update_user(user_id, tipo_identificacion, numero_identificacion, nombre, apellido):
+                self.load_users()
+                self.clear_fields()
+
+        if telefono:
+            if update_user(user_id, tipo_identificacion, numero_identificacion, nombre, apellido, correo, telefono):
+                self.load_users()
+                self.clear_fields()
+        
         else:
-            if update_user(user_id, nombre, fecha_nacimiento_str):
+            if update_user(user_id, tipo_identificacion, numero_identificacion, nombre, apellido, correo):
                 self.load_users()
                 self.clear_fields()
 

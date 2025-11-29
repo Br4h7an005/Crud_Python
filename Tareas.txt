@@ -1,0 +1,19 @@
+Implementar Base de datos:
+
+1. Implementar las columnas: Tipo de identificación - enum
+(CC, NIT, PAS, CE), número de identificación y telefono.
+
+
+2. El telefono del usuario debe almacenar un conmutador o el indicativo en caso de ser extrangero
+
+3. Campos obligatorios: Tipo de identificación, Nombres, Apellidos, Correo electronico y Contraseña.
+
+4. Realizar la misma validación al momento de actualizar un usuario.
+
+5. Implementar cambio de contraseña donde se le solicita al usuario su tipo de identificación, identificación y las siguientes preguntas de validación:
+Fecha de nacimiento y correo electronico. Si son correctas solicitar la nueva contraseña y en caso de no, no cambiar la contraseña.
+
+6. Implementar un sistema login (correo, contraseña y un boton que valide la información)
+
+7. Crear repositorio que guarde los commits a medida que el código vaya mejorando.
+
