@@ -36,6 +36,7 @@ def create_table():
                     numero_identificacion VARCHAR(255) NOT NULL,
                     nombre VARCHAR(255) NOT NULL,
                     apellido VARCHAR(255) NOT NULL,
+                    direccion VARCHAR(255),
                     fecha_nacimiento DATE,
                     correo VARCHAR(255) NOT NULL,
                     password_hash VARCHAR(255) NOT NULL,
@@ -60,89 +61,38 @@ def validar_obligatorio(valor, campo):
         return False
     return True
 
+def validar_telefono(numero):
+    patron = r'^(\+\d{1,3}\s?)?\d{7,15}(\s?(ext\.?|extensión)\s?\d+)?$'
+    return re.match(patron, numero) is not None
+
 def verify_password(password, hashed_password):
     return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-def insert_user(tipo_identificacion, numero_identificacion,nombre, apellido, correo, password, fecha_nacimiento, telefono):
+def validar_correo(correo):
+    patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(patron, correo) is not None
+
+def insert_user(tipo_identificacion, numero_identificacion,nombre, apellido, correo, password, direccion=None,  fecha_nacimiento=None, telefono=None):
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
         try:
-            hashed_password = hash_password(password)
-
-            if not fecha_nacimiento and not telefono:
-                telefono = None
-                fecha_nacimiento = None
-                
-                cursor.execute("""
-                    INSERT INTO users (
-                        tipo_identificacion,
-                        numero_identificacion,
-                        nombre,
-                        apellido,
-                        correo,
-                        password_hash,
-                        telefono 
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)  -- 7 placeholders
-                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password, telefono))  
-                     
-            elif not fecha_nacimiento:
-                fecha_nacimiento = None
-                
-                cursor.execute("""
-                    INSERT INTO users (
-                        tipo_identificacion,
-                        numero_identificacion,
-                        nombre,
-                        apellido,
-                        correo,
-                        password_hash,
-                        telefono
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (tipo_identificacion, numero_identificacion, nombre, apellido, correo, hashed_password, telefono))
-                
-            elif not telefono:
-                telefono = None
-                
-                cursor.execute("""
-                    INSERT INTO users (
-                        tipo_identificacion,
-                        numero_identificacion,
-                        nombre,
-                        apellido,
-                        fecha_nacimiento, 
-                        correo,           
-                        password_hash     
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento, correo, hashed_password))
-                
-            else:
-                cursor.execute("""
-                    INSERT INTO users (
-                        tipo_identificacion,
-                        numero_identificacion,
-                        nombre,
-                        apellido,
-                        fecha_nacimiento,
-                        correo,
-                        password_hash, 
-                        telefono
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)  -- <<-- ¡8 placeholders!
-                """, (tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento, correo, hashed_password, telefono))
-
+            hashed_password = hash_password(password) 
             
-                cursor.execute("""
-                    INSERT INTO users (
-                        tipo_identificacion,
-                        numero_identificacion,
-                        nombre,
-                        apellido,
-                        fecha_nacimiento,
-                        correo,
-                        password_password_hash,
-                        telefono
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (tipo_identificacion, numero_identificacion, nombre, apellido, fecha_nacimiento, correo, hashed_password, telefono))
+            # Sentencia SQL           
+            cursor.execute("""
+                INSERT INTO users (
+                    tipo_identificacion,
+                    numero_identificacion,
+                    nombre,
+                    apellido,
+                    direccion,
+                    fecha_nacimiento,
+                    correo,
+                    password_password_hash,
+                    telefono
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (tipo_identificacion, numero_identificacion, nombre, apellido, direccion, telefono, fecha_nacimiento, correo, hashed_password))
                 
             conn.commit()
             messagebox.showinfo("Éxito", "Usuario insertado correctamente.")
@@ -159,7 +109,7 @@ def get_users():
     if conn:
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id, nombre, fecha_nacimiento FROM users")
+            cursor.execute("SELECT id, tipo_identificacion, numero_identificacion, nombre, apellido FROM users")
             users = cursor.fetchall()
             return users
         except mariadb.Error as e:
@@ -167,14 +117,14 @@ def get_users():
             return []
         finally:
             cursor.close()
-            conn.close()
+            conn.close()            
 
 def get_user_by_id(user_id):
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id, nombre, fecha_nacimiento, password_hash FROM users WHERE id = ?", (user_id,))
+            cursor.execute("SELECT id, tipo_identificacion, numero_identificacion, nombre, apellido FROM users WHERE id = ?", (user_id,))
             user = cursor.fetchone()
             return user
         except mariadb.Error as e:
@@ -184,22 +134,59 @@ def get_user_by_id(user_id):
             cursor.close()
             conn.close()
 
-def update_user(user_id, nombre, fecha_nacimiento, password=None):
+def get_user_by_identification(tipo_identificacion, numero_identificacion):
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor() 
+        try:
+            cursor.execute("""
+                SELECT id, fecha_nacimiento, correo, password_hash
+                FROM users
+                WHERE tipo_identificacion = ? AND numero_identificacion = ?
+            """, (tipo_identificacion, numero_identificacion))
+            usuario = cursor.fetchone()
+            return usuario
+        except mariadb.Error as e:
+            messagebox.showerror('Error', f'Error al obtener usuario: {e}')
+            return None
+        finally:
+            cursor.close()
+            conn.close()
+
+def update_user(user_id, tipo_identificacion, numero_identificacion, nombre, apellido, correo, 
+                direccion=None, telefono=None, fecha_nacimiento=None, password=None):
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
         try:
             if password:
                 hashed_password = hash_password(password)
-                cursor.execute(
-                    "UPDATE users SET nombre = ?, fecha_nacimiento = ?, password_hash = ? WHERE id = ?",
-                    (nombre, fecha_nacimiento, hashed_password, user_id)
-                )
-            else:
-                cursor.execute(
-                    "UPDATE users SET nombre = ?, fecha_nacimiento = ? WHERE id = ?",
-                    (nombre, fecha_nacimiento, user_id)
-                )
+                cursor.execute("""
+                    UPDATE users SET 
+                        tipo_identificacion = ?,
+                        numero_identificacion = ?,
+                        nombre = ?,
+                        apellido = ?,
+                        direccion = ?,
+                        telefono = ?,
+                        fecha_nacimiento = ?,
+                        correo = ?,
+                        password_hash = ?
+                    WHERE id = ?
+                """, (tipo_identificacion, numero_identificacion, nombre, apellido, 
+                      direccion, telefono, fecha_nacimiento, correo, hashed_password, user_id))
+            else:                
+                cursor.execute("""
+                    UPDATE users SET 
+                        tipo_identificacion = ?,
+                        numero_identificacion = ?,
+                        nombre = ?,
+                        apellido = ?,
+                        direccion = ?, 
+                        fecha_nacimiento = ?,
+                        correo = ?, 
+                    WHERE id = ?
+                    """, (tipo_identificacion, numero_identificacion, nombre, apellido, direccion, fecha_nacimiento, correo, user_id))
             conn.commit()
             messagebox.showinfo("Éxito", "Usuario actualizado correctamente.")
             return True
@@ -209,7 +196,26 @@ def update_user(user_id, nombre, fecha_nacimiento, password=None):
         finally:
             cursor.close()
             conn.close()
-            
+          
+def change_password(user_id, new_password) -> bool:
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            hashed_password = hash_password(new_password)
+            cursor.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (hashed_password, user_id)
+            )
+            conn.commit()
+            messagebox.showinfo('Éxito', 'Contraseña actualizada correctamente.')
+            return True
+        except mariadb.Error as e:
+            messagebox.showerror('Error', f'Error al cambiar contraseña: {e}')
+            return False
+        finally:
+            cursor.close()
+            conn.close()
 
 def delete_user(user_id):
     conn = get_db_connection()
@@ -226,11 +232,6 @@ def delete_user(user_id):
         finally:
             cursor.close()
             conn.close()
-            
-            
-def validar_telefono(numero):
-    patron = r'^\+\d{1,3}\s?\d{7,12}(\s?(ext\.?|extensión)\s?\d+)?$'
-    return re.match(patron, numero) is not None
 
 
 # --- Interfaz Gráfica con Tkinter ---
