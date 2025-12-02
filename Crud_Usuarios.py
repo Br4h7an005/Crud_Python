@@ -357,8 +357,23 @@ class LoginWindow:
             self.correo_entry.focus()
             return
         
-        # TODO: autenticar
-        pass
+        # Autenticar
+        user = authenticate_user(correo, password)
+        
+        if user:
+            self.user_data = user
+            messagebox.showinfo(
+                "Bienvenido",
+                f"¡Bienvenido {user['nombre']} {user['apellido']}!"
+            )
+            self.master.destroy()
+        else:
+            messagebox.showerror(
+                "Error de Autenticación",
+                "Correo o contraseña incorrectos"
+            )
+            self.password_entry.delete(0, tk.END)
+            self.correo_entry.focus()
 class UserApp:
     def __init__(self, master):
         self.master = master
