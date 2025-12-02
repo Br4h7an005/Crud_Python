@@ -262,6 +262,84 @@ def delete_user(user_id):
 
 
 # --- Interfaz Gráfica con Tkinter ---
+class LoginWindow:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Iniciar Sesión")
+        self.master.geometry("400x300")
+        self.master.resizable(False, False)
+        
+        self.center_window()
+        self.user_data = None
+        self.create_widgets()
+    
+    def center_window(self):
+        self.master.update_idletasks()
+        width = self.master.winfo_width()
+        height = self.master.winfo_height()
+        x = (self.master.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.master.winfo_screenheight() // 2) - (height // 2)
+        self.master.geometry(f'{width}x{height}+{x}+{y}')
+    
+    def create_widgets(self):
+        # Frame principal
+        main_frame = tk.Frame(self.master, padx=20, pady=20)
+        main_frame.pack(expand=True, fill='both')
+        
+        # Título
+        title_label = tk.Label(
+            main_frame,
+            text="SISTEMA DE GESTIÓN DE USUARIOS",
+            font=("Arial", 14, "bold")
+        )
+        title_label.pack(pady=(0, 20))
+        
+        # Frame de formulario
+        form_frame = tk.Frame(main_frame)
+        form_frame.pack(expand=True)
+        
+        # Correo
+        tk.Label(form_frame, text="Correo Electrónico:", font=("Arial", 10)).grid(
+            row=0, column=0, pady=10, sticky="w"
+        )
+        self.correo_entry = tk.Entry(form_frame, width=30, font=("Arial", 10))
+        self.correo_entry.grid(row=0, column=1, pady=10, padx=10)
+        self.correo_entry.focus()
+        
+        # Contraseña
+        tk.Label(form_frame, text="Contraseña:", font=("Arial", 10)).grid(
+            row=1, column=0, pady=10, sticky="w"
+        )
+        self.password_entry = tk.Entry(form_frame, width=30, font=("Arial", 10), show="*")
+        self.password_entry.grid(row=1, column=1, pady=10, padx=10)
+        
+        # Botones
+        button_frame = tk.Frame(main_frame)
+        button_frame.pack(pady=20)
+        
+        tk.Button(
+            button_frame,
+            text="Iniciar Sesión",
+            command=self.login,
+            width=15,
+            bg="#4CAF50",
+            fg="white",
+            font=("Arial", 10, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(
+            button_frame,
+            text="Salir",
+            command=self.master.quit,
+            width=15,
+            bg="#f44336",
+            fg="white",
+            font=("Arial", 10)
+        ).pack(side=tk.LEFT, padx=5)
+    
+    def login(self):
+        # TODO: implementar
+        pass
 class UserApp:
     def __init__(self, master):
         self.master = master
