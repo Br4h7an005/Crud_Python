@@ -216,7 +216,34 @@ def change_password(user_id, new_password) -> bool:
         finally:
             cursor.close()
             conn.close()
-
+def authenticate_user(correo, password):
+    """Autentica un usuario por correo y contraseña"""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT id, password_hash, nombre, apellido FROM users WHERE correo = ?",
+                (correo,)
+            )
+            user = cursor.fetchone()
+            
+            if user:
+                user_id, password_hash, nombre, apellido = user
+                if verify_password(password, password_hash):
+                    return {
+                        'id': user_id,
+                        'nombre': nombre,
+                        'apellido': apellido,
+                        'correo': correo
+                    }
+            return None
+        except mariadb.Error as e:
+            messagebox.showerror('Error', f'Error al autenticar: {e}')
+            return None
+        finally:
+            cursor.close()
+            conn.close()
 def delete_user(user_id):
     conn = get_db_connection()
     if conn:
