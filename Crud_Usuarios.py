@@ -338,7 +338,26 @@ class LoginWindow:
         ).pack(side=tk.LEFT, padx=5)
     
     def login(self):
-        # TODO: implementar
+        correo = self.correo_entry.get().strip()
+        password = self.password_entry.get()
+        
+        # Validaciones
+        if not correo:
+            messagebox.showerror("Error", "Por favor ingrese su correo electrónico")
+            self.correo_entry.focus()
+            return
+        
+        if not password:
+            messagebox.showerror("Error", "Por favor ingrese su contraseña")
+            self.password_entry.focus()
+            return
+        
+        if not validar_correo(correo):
+            messagebox.showerror("Error", "El formato del correo no es válido")
+            self.correo_entry.focus()
+            return
+        
+        # TODO: autenticar
         pass
 class UserApp:
     def __init__(self, master):
