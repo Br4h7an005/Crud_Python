@@ -98,10 +98,10 @@ def insert_user(tipo_identificacion, numero_identificacion, nombre, apellido, co
                 nombre, 
                 apellido, 
                 direccion, 
-                fecha_nacimiento,   # <--- CORREGIDO: Antes aquí tenías 'telefono'
-                correo,             # <--- CORREGIDO: Antes aquí tenías 'fecha_nacimiento'
-                hashed_password,    # <--- CORREGIDO: Antes aquí tenías 'correo'
-                telefono            # <--- CORREGIDO: Antes aquí tenías 'hashed_password'
+                fecha_nacimiento,   
+                correo,             
+                hashed_password,    
+                telefono            
             )) 
                 
             conn.commit()
@@ -115,7 +115,6 @@ def insert_user(tipo_identificacion, numero_identificacion, nombre, apellido, co
             conn.close()
             
 def get_users():
-    """Obtiene la lista de todos los usuarios para mostrar en la tabla"""
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
@@ -134,24 +133,40 @@ def get_users():
             cursor.close()
             conn.close()  
 
-def get_user_by_id(user_id):
+def validated_credentials(id_user, tipo_identificacion, numero_identificacion):
+    resultado_validacion = False
+
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                SELECT id, tipo_identificacion, numero_identificacion, nombre, apellido, 
-                       direccion, telefono, fecha_nacimiento, correo, password_hash 
-                FROM users WHERE id = ?
-            """, (user_id,))
-            user = cursor.fetchone()
-            return user
+                SELECT 
+                    COUNT(*)
+                FROM 
+                    users
+                WHERE 
+                    id = ? AND
+                    tipo_identificacion = ? AND
+                    numero_identificacion = ?;
+            """, (id_user, tipo_identificacion, numero_identificacion))
+            
+            
+            count = cursor.fetchone()[0]
+            if count == 1:
+                resultado_validacion = True
+            else: 
+                resultado_validacion = False
+                
         except mariadb.Error as e:
-            messagebox.showerror("Error", f"Error al obtener usuario por ID: {e}")
-            return None
+            messagebox.showerror("Error", f"Error validar tipo de identificación y número de identificación: {e}")
+            return resultado_validacion
         finally:
             cursor.close()
             conn.close()
+        
+        return resultado_validacion           
+
             
 
 def update_user(user_id, tipo_identificacion, numero_identificacion, nombre, apellido, correo, direccion=None, telefono=None, fecha_nacimiento=None, password=None):
@@ -176,8 +191,6 @@ def update_user(user_id, tipo_identificacion, numero_identificacion, nombre, ape
                 """, (tipo_identificacion, numero_identificacion, nombre, apellido, 
                       direccion, telefono, fecha_nacimiento, correo, hashed_password, user_id))
             else:                
-                # CORRECCIÓN AQUÍ: Se eliminó la coma después de "correo = ?" 
-                # y se agregó "telefono = ?" que faltaba en tu bloque else
                 cursor.execute("""
                     UPDATE users SET 
                         tipo_identificacion = ?,
@@ -218,6 +231,26 @@ def change_password(user_id, new_password) -> bool:
         except mariadb.Error as e:
             messagebox.showerror('Error', f'Error al cambiar contraseña: {e}')
             return False
+        finally:
+            cursor.close()
+            conn.close()
+            
+def get_user_by_id(user_id):
+    """Obtiene todos los datos de un usuario específico por su ID"""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT id, tipo_identificacion, numero_identificacion, nombre, apellido, 
+                       direccion, telefono, fecha_nacimiento, correo, password_hash 
+                FROM users WHERE id = ?
+            """, (user_id,))
+            user = cursor.fetchone()
+            return user
+        except mariadb.Error as e:
+            messagebox.showerror("Error", f"Error al obtener usuario por ID: {e}")
+            return None
         finally:
             cursor.close()
             conn.close()
@@ -315,6 +348,7 @@ class UserApp:
         tk.Button(button_frame, text="Actualizar Usuario", command=self.update_selected_user).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Eliminar Usuario", command=self.delete_selected_user).pack(side=tk.LEFT, padx=5)
         tk.Button(button_frame, text="Limpiar Campos", command=self.clear_fields).pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="Cambiar Contraseña", command=self.open_change_password_window).pack(side=tk.LEFT, padx=5)
         # --- Botón para salir ---
         tk.Button(button_frame, text="Salir", command=self.master.destroy, bg="red", fg="white").pack(side=tk.RIGHT, padx=15)
 
@@ -342,6 +376,8 @@ class UserApp:
 
         self.tree.pack(padx=10, pady=10, fill="both", expand=True)
         self.tree.bind("<ButtonRelease-1>", self.on_tree_select)
+        
+        # Función para cambiar la contraseña
 
     def load_users(self):
         for item in self.tree.get_children():
@@ -394,11 +430,11 @@ class UserApp:
                     numero_identificacion, 
                     nombre,
                     apellido,
-                    correo,      # Argumento 5
-                    password,    # Argumento 6
-                    direccion,   # Argumento 7 (direccion)
-                    fecha_nacimiento_str, # Argumento 8 (fecha_nacimiento)
-                    telefono     # Argumento 9 (telefono)
+                    correo,     
+                    password,    
+                    direccion,   
+                    fecha_nacimiento_str, 
+                    telefono    
                 ):
             self.load_users()
             self.clear_fields()
@@ -411,10 +447,8 @@ class UserApp:
 
         user_id = self.tree.item(selected_item)['values'][0]
         
-        # Recolección de datos del formulario
         tipo_identificacion = self.tipo_identificacion_var.get().strip()
         
-        # CORRECCIÓN: Antes estabas obteniendo esto de 'tipo_identificacion_var' otra vez
         numero_identificacion = self.numero_identificacion_entry.get().strip() 
         
         nombre = self.nombre_entry.get().strip()
@@ -476,19 +510,14 @@ class UserApp:
             user = get_user_by_id(user_id)
             
             if user:
-                # user = (id, tipo_identificacion, numero_identificacion, nombre, apellido, 
-                #         direccion, telefono, fecha_nacimiento, correo, password_hash)
                 
-                # Habilitar campo ID temporalmente para mostrar el valor
                 self.id_entry.config(state='normal')
                 self.id_entry.delete(0, tk.END)
                 self.id_entry.insert(0, user[0])  # ID
                 self.id_entry.config(state='disabled')
                 
-                # Cargar tipo de identificación
                 self.tipo_identificacion_var.set(user[1])  # tipo_identificacion
                 
-                # Cargar número de identificación
                 self.numero_identificacion_entry.delete(0, tk.END)
                 self.numero_identificacion_entry.insert(0, user[2])  # numero_identificacion
                 
@@ -546,6 +575,142 @@ class UserApp:
         self.fecha_nacimiento_entry.set_date(datetime.now().date())  # Resetear a fecha actual
         self.correo_entry.delete(0, tk.END)
         self.password_entry.delete(0, tk.END)
+    
+    def open_change_password_window(self):
+        selected_item = self.tree.focus()
+        if not selected_item:
+            messagebox.showwarning("Selección Requerida", 
+                "Por favor, seleccione un usuario de la tabla antes de cambiar la contraseña.")
+            return
+        
+        # Ventana para cambiar la contraseña del usuario
+        change_window = tk.Toplevel(self.master)
+        change_window.title("Cambiar Contraseña")
+        change_window.geometry("400x350")
+        change_window.resizable(False, False) # Que la página no sea reajustable por el usuario
+        
+        # Frame principal
+        main_frame = tk.LabelFrame(change_window, text="Cambio de contraseña")
+        main_frame.pack(padx=10, pady=10, fill="both", expand=True)
+        
+        #Tipo de identificación
+        tk.Label(main_frame, text="Tipo de identificación").grid(row=0, column=0, pady=8, sticky="w")
+        tipo_id_var = tk.StringVar(change_window)
+        tipo_id_var.set('CC')
+        tipo_id_menu = tk.OptionMenu(main_frame, tipo_id_var, 'CC', 'NIT', 'PAS', 'CE')
+        tipo_id_menu.grid(row=0, column=1, pady=8, sticky="ew")
+
+        # Número de identificación
+        tk.Label(main_frame, text='Número de identificación:').grid(row=1, column=0, sticky='w')
+        numero_id_entry = tk.Entry(main_frame)
+        numero_id_entry.grid(row=1, column=1, pady=8, sticky="ew")
+        
+        # Fecha de nacimiento
+        tk.Label(main_frame, text="Fecha de Nacimiento:").grid(row=2, column=0, pady=8, sticky="w")
+        date_nacimiento_entry = DateEntry(main_frame, selectmode='day', date_pattern='yyyy-mm-dd')
+        date_nacimiento_entry.grid(row=2, column=1, pady=8, sticky="ew")
+        
+        # Correo electrónico
+        tk.Label(main_frame, text="Correo Electrónico").grid(row=3, column=0, pady=8, sticky="w")
+        correo_entry = tk.Entry(main_frame)
+        correo_entry.grid(row=3, column=1, pady=8, sticky="ew")
+        
+        # Nueva contraseña
+        tk.Label(main_frame, text="Nueva contraseña").grid(row=4, column=0, pady=8, sticky="w")
+        new_password_entry = tk.Entry(main_frame, show='*')
+        new_password_entry.grid(row=4, column=1, pady=8, sticky="ew")
+        
+        # Confirmar nueva contraseña
+        tk.Label(main_frame, text="Confirmar contraseña").grid(row=5, column=0, pady=8, sticky="w")
+        confirm_password_entry = tk.Entry(main_frame, show='*')
+        confirm_password_entry.grid(row=5, column=1, pady=8, sticky="ew")
+        
+        button_frame = tk.Frame(main_frame)
+        button_frame.grid(row=10, column=0, columnspan=2, pady=10)
+
+        
+        main_frame.grid_columnconfigure(1, weight=1)
+        
+        def process_password_change():
+            user_id = self.tree.item(selected_item)['values'][0]
+            
+            #Obtener los datos de los campos
+            tipo_id = tipo_id_var.get()
+            numero_id = numero_id_entry.get().strip()
+            fecha_nacimiento = date_nacimiento_entry.get_date().strftime('%Y-%m-%d')
+            correo = correo_entry.get().strip()
+            new_password = new_password_entry.get()
+            confirm_password = confirm_password_entry.get()
+                        
+            # Válidar los campos obligatorios
+            if (
+                not validar_obligatorio('numero_identificación', numero_id) or
+                not validar_obligatorio('fecha_nacimiento', fecha_nacimiento) or
+                not validar_obligatorio('correo electrónico', correo) or
+                not validar_obligatorio('nueva contraseña', new_password) or
+                not validar_obligatorio('confirmar contraseña', confirm_password)
+            ): 
+                print("DEBUG: Falló la validación OBLIGATORIA.")
+                return
+            
+            if new_password != confirm_password:
+                messagebox.showerror("Error", "Las contraseñas no coinciden.")
+                print("DEBUG: Falló la coincidencia de contraseñas.")
+                return
+            
+            usuario = get_user_by_id(user_id)
+            
+            if not usuario:
+                messagebox.showerror("Error", "No se pudo obtener los datos del usuario.", parent=change_window)
+                print("DEBUG: No se pudo obtener los datos del usuario.")
+                return
+            
+            tipo_id_usuario = usuario[1]
+            numero_id_usuario = usuario[2]
+            correo_usuario = usuario[8]
+            fecha_nacimiento_usuario = str(usuario[7]) if usuario[7] else None  
+            
+            # Validar tipo de identificación
+            if tipo_id_usuario != tipo_id:
+                messagebox.showerror("Error", 
+                    "El tipo de identificación no coincide.\nNo se puede cambiar la contraseña.", 
+                    parent=change_window)
+                print(f"DEBUG: Falló Tipo ID. DB: {tipo_id_usuario}, Entrada: {tipo_id}")
+                return
+
+            # Validar número de identificación
+            if numero_id_usuario != numero_id:
+                messagebox.showerror("Error", 
+                    "El número de identificación no coincide.\nNo se puede cambiar la contraseña.", 
+                    parent=change_window)
+                return
+
+            # Validar fecha de nacimiento
+            if fecha_nacimiento_usuario != fecha_nacimiento:
+                messagebox.showerror("Error", 
+                    "La fecha de nacimiento no coincide.\nNo se puede cambiar la contraseña.", 
+                    parent=change_window)
+                print(f"DEBUG: Falló Fecha Nacimiento. DB: {fecha_nacimiento_usuario}, Entrada: {fecha_nacimiento}")
+                return
+
+            # Validar correo electrónico
+            if correo_usuario.lower() != correo.lower():
+                messagebox.showerror("Error", 
+                    "El correo electrónico no coincide.\nNo se puede cambiar la contraseña.", 
+                    parent=change_window)
+                print(f"DEBUG: Falló Correo. DB: {correo_usuario}, Entrada: {correo}")
+                return
+            
+            if change_password(user_id, new_password):
+                print("DEBUG: Contraseña cambiada correctamente.")
+                messagebox.showinfo("Éxito", "Contraseña cambiada correctamente.")
+                change_window.destroy()
+                
+        # Botón para cambiar la contraseña
+        tk.Button(button_frame, text="Cambiar Contraseña", command=process_password_change).pack(side=tk.LEFT, padx=5)
+        
+        # Botón para cerrar la ventana
+        tk.Button(button_frame, text="Cancelar", command=change_window.destroy,bg="#f44336", fg="white").pack(side=tk.LEFT, padx=5)
 
 # --- Ejecutar la Aplicación ---
 if __name__ == "__main__":
