@@ -236,6 +236,26 @@ def change_password(user_id, new_password) -> bool:
             conn.close()
 def authenticate_user(correo, password):
     """Autentica un usuario por correo y contraseña"""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor(dictionary=True)
+        try:
+            cursor.execute("""
+                SELECT id, tipo_identificacion, numero_identificacion, nombre, apellido, 
+                       direccion, telefono, fecha_nacimiento, correo, password_hash 
+                FROM users WHERE correo = ?
+            """, (correo,))
+            user = cursor.fetchone()
+            if user and verify_password(password, user['password_hash']):
+                return user
+            else:
+                return None
+        except mariadb.Error as e:
+            messagebox.showerror("Error", f"Error al autenticar usuario: {e}")
+            return None
+        finally:
+            cursor.close()
+            conn.close()
             
 def get_user_by_id(user_id):
     """Obtiene todos los datos de un usuario específico por su ID"""
@@ -817,7 +837,6 @@ class UserApp:
             
             if change_password(user_id, new_password):
                 print("DEBUG: Contraseña cambiada correctamente.")
-                messagebox.showinfo("Éxito", "Contraseña cambiada correctamente.")
                 change_window.destroy()
                 
         # Botón para cambiar la contraseña
@@ -831,5 +850,10 @@ if __name__ == "__main__":
     create_table()
 
     root = tk.Tk()
-    app = UserApp(root)
+    login_window = LoginWindow(root)
     root.mainloop()
+    
+    if hasattr(login_window, 'user_data') and login_window.user_data:
+        app_root = tk.Tk()
+        app = UserApp(app_root)
+        app_root.mainloop()
