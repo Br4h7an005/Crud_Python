@@ -133,7 +133,7 @@ def get_users():
             cursor.close()
             conn.close()  
 
-def validated_credentials(id_user, tipo_identificacion, numero_identificacion):
+def validated_users():
     resultado_validacion = False
 
     conn = get_db_connection()
@@ -144,22 +144,20 @@ def validated_credentials(id_user, tipo_identificacion, numero_identificacion):
                 SELECT 
                     COUNT(*)
                 FROM 
-                    users
-                WHERE 
-                    id = ? AND
-                    tipo_identificacion = ? AND
-                    numero_identificacion = ?;
-            """, (id_user, tipo_identificacion, numero_identificacion))
+                    users;
+            """)
             
             
             count = cursor.fetchone()[0]
-            if count == 1:
+            if count > 0:
+                print("Usuarios existen en la base de datos.")
                 resultado_validacion = True
             else: 
+                print("No hay usuarios en la base de datos.")
                 resultado_validacion = False
                 
         except mariadb.Error as e:
-            messagebox.showerror("Error", f"Error validar tipo de identificación y número de identificación: {e}")
+            messagebox.showerror("Error", f"Error validar usuarios en la base de datos: {e}")
             return resultado_validacion
         finally:
             cursor.close()
@@ -234,6 +232,7 @@ def change_password(user_id, new_password) -> bool:
         finally:
             cursor.close()
             conn.close()
+            
 def authenticate_user(correo, password):
     """Autentica un usuario por correo y contraseña"""
     conn = get_db_connection()
@@ -848,12 +847,18 @@ class UserApp:
 # --- Ejecutar la Aplicación ---
 if __name__ == "__main__":
     create_table()
-
-    root = tk.Tk()
-    login_window = LoginWindow(root)
-    root.mainloop()
     
-    if hasattr(login_window, 'user_data') and login_window.user_data:
-        app_root = tk.Tk()
-        app = UserApp(app_root)
-        app_root.mainloop()
+    if not validated_users():
+        root = tk.Tk()
+        app = UserApp(root)
+        root.mainloop()
+
+    else:
+        root = tk.Tk()
+        login_window = LoginWindow(root)
+        root.mainloop()
+        
+        if hasattr(login_window, 'user_data') and login_window.user_data:
+            app_root = tk.Tk()
+            app = UserApp(app_root)
+            app_root.mainloop()
